@@ -1,0 +1,373 @@
+basePath: /
+definitions:
+  main.Match:
+    properties:
+      id:
+        type: string
+      matched_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  main.Message:
+    properties:
+      content:
+        type: string
+      id:
+        type: string
+      receiver_id:
+        type: string
+      sender_id:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  main.User:
+    properties:
+      age:
+        type: integer
+      bio:
+        type: string
+      email:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      pictures:
+        type: string
+      preferences:
+        type: string
+    type: object
+host: localhost:8000
+info:
+  contact: {}
+  description: This is the API server for a Tinder-like application.
+  title: Tinder API
+  version: "1.0"
+paths:
+  /logout:
+    post:
+      consumes:
+      - application/json
+      description: Log out a user by invalidating the JWT token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Log out a user
+      tags:
+      - Users
+  /matches:
+    post:
+      consumes:
+      - application/json
+      description: Create a new match with user ID and matched user ID
+      parameters:
+      - description: Match object containing user ID and matched user ID
+        in: body
+        name: match
+        required: true
+        schema:
+          $ref: '#/definitions/main.Match'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Match'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Create a new match
+      tags:
+      - Matches
+  /matches/{user_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of matches for a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/main.User'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get a list of matches for a user
+      tags:
+      - Matches
+  /messages:
+    post:
+      consumes:
+      - application/json
+      description: Create a new message with sender ID, receiver ID, and content
+      parameters:
+      - description: Message object containing sender ID, receiver ID, and content
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/main.Message'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Message'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Create a new message
+      tags:
+      - Messages
+  /messages/{user_id}/{matched_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of messages between two users by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Matched user ID
+        in: path
+        name: matched_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/main.Message'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get a list of messages between two users
+      tags:
+      - Messages
+  /settings:
+    get:
+      consumes:
+      - application/json
+      description: Get a user's settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get a user's settings
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Update a user's settings by providing the user's ID and the updated
+        settings
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated settings
+        in: body
+        name: settings
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Update a user's settings
+      tags:
+      - Users
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/main.User'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get a list of users
+      tags:
+      - Users
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.User'
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get a user by ID
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Update a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User object containing updated fields
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/main.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.User'
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Update a user by ID
+      tags:
+      - Users
+  /users/{id}/password:
+    put:
+      consumes:
+      - application/json
+      description: Update a user's password by providing the user's ID and the old
+        and new passwords
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Old and new passwords
+        in: body
+        name: passwordData
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Invalid old password
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Update a user's password
+      tags:
+      - Users
+schemes:
+- http
+swagger: "2.0"

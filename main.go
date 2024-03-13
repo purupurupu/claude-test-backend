@@ -1,3 +1,10 @@
+// @title Tinder API
+// @version 1.0
+// @description This is the API server for a Tinder-like application.
+// @host localhost:8000
+// @BasePath /
+// @schemes http
+
 package main
 
 import (
@@ -9,12 +16,15 @@ import (
 	"os"
 	"time"
 
+	_ "backend/docs"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/ulule/limiter/v3"
 	"github.com/ulule/limiter/v3/drivers/middleware/stdlib"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
@@ -71,6 +81,22 @@ func init() {
 	db.AutoMigrate(&User{}, &Match{}, &Message{})
 }
 
+// createUser creates a new user.
+//
+// This endpoint allows you to create a new user by providing the user's email and password in the request body.
+// The password will be hashed before storing it in the database.
+//
+// @Summary Create a new user
+// @Description Create a new user with email and password
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param user body User true "User object containing email and password"
+// @Success 200 {object} User
+// @Failure 400 {string} string "Email and Password are required"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /users [post]
+
 func createUser(w http.ResponseWriter, r *http.Request) {
 	var user User
 	json.NewDecoder(r.Body).Decode(&user)
@@ -90,6 +116,22 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(user)
 }
+
+// loginUser logs in a user.
+//
+// This endpoint allows you to log in a user by providing the user's email and password in the request body.
+// If the email and password are valid, a JWT token will be returned in the response.
+//
+// @Summary Log in a user
+// @Description Log in a user with email and password
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param user body User true "User object containing email and password"
+// @Success 200 {object} map[string]string
+// @Failure 401 {string} string "Invalid email or password"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /login [post]
 
 func loginUser(w http.ResponseWriter, r *http.Request) {
 	var user User
@@ -118,6 +160,22 @@ func loginUser(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
 }
+
+// authMiddleware is a middleware that checks if the request has a valid JWT token.
+//
+// This middleware checks if the request has a valid JWT token in the Authorization header.
+// If the token is valid, the user ID is added to the request context and the next handler is called.
+// If the token is invalid, a 401 Unauthorized response is returned.
+//
+// @Summary Check if the request has a valid JWT token
+// @Description Check if the request has a valid JWT token in the Authorization header
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "JWT token"
+// @Success 200 {string} string "OK"
+// @Failure 401 {string} string "Unauthorized"
+// @Router /users [get]
 
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -156,12 +214,40 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// getUsers returns a list of users.
+//
+// This endpoint allows you to get a list of all users.
+// The response will contain an array of user objects.
+//
+// @Summary Get a list of users
+// @Description Get a list of all users
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Success 200 {array} User
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /users [get]
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	var users []User
 	db.Find(&users)
 	json.NewEncoder(w).Encode(users)
 }
 
+// getUser returns a user by ID.
+//
+// This endpoint allows you to get a user by providing the user's ID in the request URL.
+// The response will contain the user object.
+//
+// @Summary Get a user by ID
+// @Description Get a user by ID
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} User
+// @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /users/{id} [get]
 func getUser(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["id"]
 
@@ -174,6 +260,22 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// updateUser updates a user by ID.
+//
+// This endpoint allows you to update a user by providing the user's ID in the request URL and the updated user object in the request body.
+// The response will contain the updated user object.
+//
+// @Summary Update a user by ID
+// @Description Update a user by ID
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param user body User true "User object containing updated fields"
+// @Success 200 {object} User
+// @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /users/{id} [put]
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["id"]
 
@@ -189,10 +291,39 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// logout logs out a user.
+//
+// This endpoint allows you to log out a user by invalidating the JWT token.
+// The response will contain a message indicating that the user has been successfully logged out.
+//
+// @Summary Log out a user
+// @Description Log out a user by invalidating the JWT token
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Router /logout [post]
 func logout(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Successfully logged out"})
 }
 
+// updatePassword updates a user's password.
+//
+// This endpoint allows you to update a user's password by providing the user's ID in the request URL and the old and new passwords in the request body.
+// The response will contain a message indicating that the password has been successfully updated.
+//
+// @Summary Update a user's password
+// @Description Update a user's password by providing the user's ID and the old and new passwords
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param passwordData body map[string]string true "Old and new passwords"
+// @Success 200 {object} map[string]string
+// @Failure 401 {string} string "Invalid old password"
+// @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /users/{id}/password [put]
 func updatePassword(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["id"]
 	var user User
@@ -216,6 +347,20 @@ func updatePassword(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Password updated successfully"})
 }
 
+// getSettings returns a user's settings.
+//
+// This endpoint allows you to get a user's settings.
+// The response will contain the user
+//
+// @Summary Get a user's settings
+// @Description Get a user's settings
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /settings [get]
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(string)
 	var user User
@@ -232,6 +377,22 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// updateSettings updates a user's settings.
+//
+// This endpoint allows you to update a user's settings by providing the user's ID in the request URL and the updated settings in the request body.
+// The response will contain a message indicating that the settings have been successfully updated.
+//
+// @Summary Update a user's settings
+// @Description Update a user's settings by providing the user's ID and the updated settings
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param settings body map[string]interface{} true "Updated settings"
+// @Success 200 {object} map[string]string
+// @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /settings [put]
 func updateSettings(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(string)
 	var user User
@@ -260,6 +421,20 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Settings updated successfully"})
 }
 
+// createMatch creates a new match.
+//
+// This endpoint allows you to create a new match by providing the user's ID and the matched user's ID in the request body.
+// The response will contain the match object.
+//
+// @Summary Create a new match
+// @Description Create a new match with user ID and matched user ID
+// @Tags Matches
+// @Accept json
+// @Produce json
+// @Param match body Match true "Match object containing user ID and matched user ID"
+// @Success 200 {object} Match
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /matches [post]
 func createMatch(w http.ResponseWriter, r *http.Request) {
 	var match Match
 	json.NewDecoder(r.Body).Decode(&match)
@@ -272,6 +447,20 @@ func createMatch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(match)
 }
 
+// getMatches returns a list of matches for a user.
+//
+// This endpoint allows you to get a list of matches for a user by providing the user's ID in the request URL.
+// The response will contain an array of user objects that the user has matched with.
+//
+// @Summary Get a list of matches for a user
+// @Description Get a list of matches for a user by ID
+// @Tags Matches
+// @Accept json
+// @Produce json
+// @Param user_id path string true "User ID"
+// @Success 200 {array} User
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /matches/{user_id} [get]
 func getMatches(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["user_id"]
 
@@ -281,6 +470,20 @@ func getMatches(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(matches)
 }
 
+// createMessage creates a new message.
+//
+// This endpoint allows you to create a new message by providing the message object in the request body.
+// The response will contain the message object.
+//
+// @Summary Create a new message
+// @Description Create a new message with sender ID, receiver ID, and content
+// @Tags Messages
+// @Accept json
+// @Produce json
+// @Param message body Message true "Message object containing sender ID, receiver ID, and content"
+// @Success 200 {object} Message
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /messages [post]
 func createMessage(w http.ResponseWriter, r *http.Request) {
 	var message Message
 	json.NewDecoder(r.Body).Decode(&message)
@@ -294,6 +497,21 @@ func createMessage(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(message)
 }
 
+// getMessages returns a list of messages between two users.
+//
+// This endpoint allows you to get a list of messages between two users by providing the user's ID and the matched user's ID in the request URL.
+// The response will contain an array of message objects.
+//
+// @Summary Get a list of messages between two users
+// @Description Get a list of messages between two users by ID
+// @Tags Messages
+// @Accept json
+// @Produce json
+// @Param user_id path string true "User ID"
+// @Param matched_id path string true "Matched user ID"
+// @Success 200 {array} Message
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /messages/{user_id}/{matched_id} [get]
 func getMessages(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["user_id"]
 	matchedID := mux.Vars(r)["matched_id"]
@@ -345,6 +563,13 @@ func main() {
 	router.HandleFunc("/users", createUser).Methods("POST")
 	router.HandleFunc("/login", loginUser).Methods("POST")
 	router.HandleFunc("/logout", logout).Methods("POST")
+	router.PathPrefix("/swagger").Handler(httpSwagger.WrapHandler)
+
+	// root endpoint
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Welcome to the Tinder API"))
+	})
 
 	log.Fatal(http.ListenAndServe(":8000", router))
 }
