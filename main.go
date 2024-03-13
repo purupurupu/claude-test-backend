@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/ulule/limiter/v3"
 	"github.com/ulule/limiter/v3/drivers/middleware/stdlib"
@@ -49,8 +51,20 @@ var db *gorm.DB
 var jwtKey = []byte("secret_key")
 
 func init() {
+	loadErr := godotenv.Load()
+	if loadErr != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	var err error
-	db, err = gorm.Open("postgres", "host=localhost port=5432 user=gorm dbname=gorm password=gorm sslmode=disable")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbURI := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable", dbHost, dbPort, dbUser, dbName, dbPassword)
+
+	db, err = gorm.Open("postgres", dbURI)
 	if err != nil {
 		panic("failed to connect database")
 	}

@@ -1,0 +1,29 @@
+version: "3"
+
+services:
+  db:
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_USER: gorm
+      POSTGRES_PASSWORD: gorm
+      POSTGRES_DB: gorm
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  # api:
+  #   build: .
+  #   depends_on:
+  #     - db
+  #   environment:
+  #     DB_HOST: db
+  #     DB_PORT: 5432
+  #     DB_USER: gorm
+  #     DB_PASSWORD: gorm
+  #     DB_NAME: gorm
+  #   ports:
+  #     - "8000:8000"
+
+volumes:
+  db-data:
