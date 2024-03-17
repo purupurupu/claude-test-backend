@@ -19,17 +19,24 @@ import (
 	_ "backend/docs"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
+
 	"github.com/sirupsen/logrus"
-	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/ulule/limiter/v3"
 	"github.com/ulule/limiter/v3/drivers/middleware/stdlib"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func (u *User) BeforeCreate(scope *gorm.Scope) error {
+	uuid := uuid.New().String()
+	return scope.SetColumn("ID", uuid)
+}
 
 type User struct {
 	ID          string `json:"id" gorm:"primary_key"`
@@ -96,7 +103,6 @@ func init() {
 // @Failure 400 {string} string "Email and Password are required"
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /users [post]
-
 func createUser(w http.ResponseWriter, r *http.Request) {
 	var user User
 	json.NewDecoder(r.Body).Decode(&user)
@@ -132,7 +138,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {string} string "Invalid email or password"
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /login [post]
-
 func loginUser(w http.ResponseWriter, r *http.Request) {
 	var user User
 	json.NewDecoder(r.Body).Decode(&user)
@@ -176,7 +181,6 @@ func loginUser(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {string} string "OK"
 // @Failure 401 {string} string "Unauthorized"
 // @Router /users [get]
-
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString := r.Header.Get("Authorization")
@@ -539,31 +543,54 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func optionsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	router := mux.NewRouter()
+
+	// CORSミドルウェアを設定
+	corsWrapper := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "Access-Control-Allow-Origin"},
+		AllowCredentials: true,
+	})
+
+	// ルーターにCORSミドルウェアを適用
+	router.Use(corsWrapper.Handler)
+	router.Use(optionsMiddleware)
 
 	rate, _ := limiter.NewRateFromFormatted("100-H")
 	store := memory.NewStore()
 	lmt := limiter.New(store, rate)
 	router.Use(limitMiddleware(lmt))
-
 	router.Use(loggingMiddleware)
 
-	router.HandleFunc("/users", authMiddleware(getUsers)).Methods("GET")
-	router.HandleFunc("/users/{id}", authMiddleware(getUser)).Methods("GET")
-	router.HandleFunc("/users/{id}", authMiddleware(updateUser)).Methods("PUT")
-	router.HandleFunc("/users/{id}/password", authMiddleware(updatePassword)).Methods("PUT")
-	router.HandleFunc("/matches", authMiddleware(createMatch)).Methods("POST")
-	router.HandleFunc("/matches/{user_id}", authMiddleware(getMatches)).Methods("GET")
-	router.HandleFunc("/messages", authMiddleware(createMessage)).Methods("POST")
-	router.HandleFunc("/messages/{user_id}/{matched_id}", authMiddleware(getMessages)).Methods("GET")
-	router.HandleFunc("/settings", authMiddleware(getSettings)).Methods("GET")
-	router.HandleFunc("/settings", authMiddleware(updateSettings)).Methods("PUT")
-
-	router.HandleFunc("/users", createUser).Methods("POST")
-	router.HandleFunc("/login", loginUser).Methods("POST")
-	router.HandleFunc("/logout", logout).Methods("POST")
-	router.PathPrefix("/swagger").Handler(httpSwagger.WrapHandler)
+	router.HandleFunc("/users", authMiddleware(getUsers)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/users/{id}", authMiddleware(getUser)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/users/{id}", authMiddleware(updateUser)).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/users/{id}/password", authMiddleware(updatePassword)).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/matches", authMiddleware(createMatch)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/matches/{user_id}", authMiddleware(getMatches)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/messages", authMiddleware(createMessage)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/messages/{user_id}/{matched_id}", authMiddleware(getMessages)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/settings", authMiddleware(getSettings)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/settings", authMiddleware(updateSettings)).Methods("PUT", "OPTIONS")
+	router.HandleFunc("/users", createUser).Methods("POST", "OPTIONS")
+	router.HandleFunc("/login", loginUser).Methods("POST", "OPTIONS")
+	router.HandleFunc("/logout", logout).Methods("POST", "OPTIONS")
 
 	// root endpoint
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
