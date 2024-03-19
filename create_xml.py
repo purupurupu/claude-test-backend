@@ -27,47 +27,35 @@ def is_ignored(path, project_dir, gitignore_patterns, summaryignore_patterns, ad
 
 def generate_project_summary(project_dir):
     project_name = os.path.basename(project_dir)
-    summary = f'# {project_name}\n\n## Directory Structure\n\n'
+    xml_output = f'<{project_name}>\n'
 
     gitignore_patterns = read_gitignore(project_dir)
-    print(f"gitignore_patterns: {gitignore_patterns}")
     summaryignore_patterns = read_summaryignore(project_dir)
-    print(f"summaryignore_patterns: {summaryignore_patterns}")
     additional_ignore_patterns = ['generate_project_summary.py','.summaryignore', f'{project_name}_project_summary.txt', '.git']
 
-    file_contents_section = "\n## File Contents\n\n"
+    def traverse_directory(root):
+        nonlocal xml_output
+        for item in os.listdir(root):
+            item_path = os.path.join(root, item)
+            if os.path.isdir(item_path):
+                if not is_ignored(item_path, project_dir, gitignore_patterns, summaryignore_patterns, additional_ignore_patterns):
+                    traverse_directory(item_path)
+            else:
+                if not is_ignored(item_path, project_dir, gitignore_patterns, summaryignore_patterns, additional_ignore_patterns):
+                    if not is_binary(item_path):
+                        content = read_file_contents(item_path)
+                        if content.strip():
+                            # ファイル名をプロジェクト名からの相対パスで表示
+                            relative_file_path = os.path.relpath(item_path, project_dir)
+                            # XML形式でファイル内容を出力
+                            xml_output += f'  <FileName>{relative_file_path}</FileName>\n  <Content>\n{content}\n  </Content>\n'
 
-    def traverse_directory(root, level):
-        nonlocal summary, file_contents_section
-        indent = '  ' * level
-        relative_path = os.path.relpath(root, project_dir)
-        if not is_ignored(relative_path, project_dir, gitignore_patterns, summaryignore_patterns, additional_ignore_patterns):
-            summary += f'{indent}- {os.path.basename(root)}/\n'
+    traverse_directory(project_dir)
 
-            subindent = '  ' * (level + 1)
-            for item in os.listdir(root):
-                item_path = os.path.join(root, item)
-                if os.path.isdir(item_path):
-                    if not is_ignored(item_path, project_dir, gitignore_patterns, summaryignore_patterns, additional_ignore_patterns):
-                        traverse_directory(item_path, level + 1)
-                else:
-                    if not is_ignored(item_path, project_dir, gitignore_patterns, summaryignore_patterns, additional_ignore_patterns):
-                        if not is_binary(item_path):
-                            summary += f'{subindent}- {item}\n'
-                            content = read_file_contents(item_path)
-                            if content.strip():
-                                # ファイル名をプロジェクト名からの相対パスで表示
-                                relative_file_path = os.path.relpath(item_path, project_dir)
-                                # XML形式でファイル内容を出力
-                                file_contents_section += f'<{relative_file_path}><content>{content}</content></{relative_file_path}>\n\n'
-                        else:
-                            summary += f'{subindent}- {item} (binary file)\n'
+    xml_output += f'</{project_name}>'
 
-    traverse_directory(project_dir, 0)
-
-    # with open(f'{project_name}_project_summary.xml', 'w', encoding='utf-8') as file:
     with open(f'project_summary.xml', 'w', encoding='utf-8') as file:
-        file.write(summary + file_contents_section)
+        file.write(xml_output)
 
 def read_gitignore(project_dir):
     gitignore_path = os.path.join(project_dir, '.gitignore')

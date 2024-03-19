@@ -234,6 +234,19 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	var users []User
 	db.Find(&users)
+
+	result := db.Find(&users)
+
+	if result.Error != nil {
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(users) == 0 {
+		http.Error(w, "No users found", http.StatusNotFound)
+		return
+	}
+
 	json.NewEncoder(w).Encode(users)
 }
 
