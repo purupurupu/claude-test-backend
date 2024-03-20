@@ -235,19 +235,45 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	var users []User
 	db.Find(&users)
 
-	result := db.Find(&users)
+	// 各ユーザーの画像URLを配列に変換
+	var userMaps []map[string]interface{}
+	for _, user := range users {
+		// 画像URLのバリデーションを行う
+		pictures := []string{}
 
-	if result.Error != nil {
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
+		if user.Pictures == "" {
+			pictures = append(pictures, "/images/dummy_400x400.png")
+		} else {
+			if isValidImageURL(user.Pictures) {
+				pictures = append(pictures, user.Pictures)
+			} else {
+				pictures = append(pictures, "/images/dummy_400x400.png")
+			}
+		}
+
+		// レスポンスに配列を含めるためにUserをマップに変換
+		userMap := map[string]interface{}{
+			"id":          user.ID,
+			"name":        user.Name,
+			"email":       user.Email,
+			"age":         user.Age,
+			"gender":      user.Gender,
+			"preferences": user.Preferences,
+			"bio":         user.Bio,
+			"pictures":    pictures,
+		}
+		userMaps = append(userMaps, userMap)
 	}
 
-	if len(users) == 0 {
-		http.Error(w, "No users found", http.StatusNotFound)
-		return
-	}
+	json.NewEncoder(w).Encode(userMaps)
+}
 
-	json.NewEncoder(w).Encode(users)
+func isValidImageURL(url string) bool {
+	// 画像URLの有効性をチェックするロジックを実装する
+	// 例えば、URLの形式、ドメイン、ファイル拡張子などをチェックする
+	// 無効な場合はfalseを返す
+	// NOTE: この関数はダミーの実装であり、実際のアプリケーションでは適切なロジックを実装する必要がある
+	return false
 }
 
 // getUser returns a user by ID.
@@ -273,8 +299,6 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-
-	json.NewEncoder(w).Encode(user)
 }
 
 // updateUser updates a user by ID.
