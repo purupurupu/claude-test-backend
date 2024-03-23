@@ -295,10 +295,16 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["id"]
 
 	var user User
-	if err := db.First(&user, userID).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+	if err := db.First(&user, "id = ?", userID).Error; err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			http.Error(w, "User not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 		return
 	}
+
+	json.NewEncoder(w).Encode(user)
 }
 
 // updateUser updates a user by ID.
